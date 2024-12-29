@@ -9,7 +9,10 @@
 (def source-type #".*\.java")
 
 (defn ts-println [& args]
-  (println (.toString (java.time.LocalDateTime/now)) args))
+  (let [timestamp (.toString (java.time.LocalDateTime/now))
+        message (apply str (interpose " " args))]
+    (println timestamp message)
+    (storage/addUpdate! timestamp message)))
 
 (defn maybe-clear-db [args]
   (when (some #{"CLEAR"} (map string/upper-case args))
@@ -23,7 +26,7 @@
           chunk-size (if chunk-param (Integer/parseInt chunk-param) DEFAULT-CHUNKSIZE)
           file-handles (source-processor/traverse-directory source-dir source-type)
           chunks (source-processor/chunkify chunk-size file-handles)]
-      (ts-println "Storing files...")
+      (ts-println "Storing files..." source-dir source-type)
       (storage/store-files! file-handles)
       (ts-println "Storing chunks of size" chunk-size "...")
       (storage/store-chunks! chunks))))
