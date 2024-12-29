@@ -1,0 +1,72 @@
+services:
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    # volumes:
+    #   - ./Containers/Prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    volumes:
+      - ./Containers/Prometheus/prometheus.yml.template:/etc/prometheus/prometheus.yml.template  # Mount the template
+      - ./Containers/Prometheus/start_prometheus.sh:/etc/prometheus/start_prometheus.sh  # Mount the startup script
+    entrypoint: ["/bin/sh", "/etc/prometheus/start_prometheus.sh"]  # Run the script as the entrypoint
+    environment:
+    - MONITOR_TOOL_HOST=monitor_tool
+    - MONITOR_TOOL_PORT=8000
+    - MONGODB_EXPORTER_HOST=mongodb_exporter
+    - MONGODB_EXPORTER_PORT=9216
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./Containers/Grafana/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml
+      - ./Containers/Grafana/dashboard.yml:/etc/grafana/provisioning/dashboards/dashboard.yml
+      - ./Containers/Grafana/dashboards:/var/lib/grafana/dashboards
+    environment:
+    - GF_SECURITY_ADMIN_USER=admin        # Default admin username
+    - GF_SECURITY_ADMIN_PASSWORD=admin  # Set your desired password
+    - GF_LOG_LEVEL=warn # Options: debug, info, warn, error
+    depends_on:
+      - prometheus
+      - mongodb_exporter
+      - monitor_tool
+
+  monitor_tool:
+    build:
+      context: ./Containers/MonitorTool
+    container_name: monitor_tool
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mongodb
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017
+    command: ["python", "custom_mongodb_exporter.py"]
+
+  mongodb_exporter:
+    image: bitnami/mongodb-exporter:latest
+    container_name: mongodb_exporter
+    ports:
+      - "9216:9216"
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017
+    depends_on:
+      - mongodb
+
+  mongodb:
+    image: mongo
+    restart: always
+    container_name: mongodb
+    command: --quiet --syslog
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+
+volumes:
+  mongodb_data:
+  mongodb_config:
