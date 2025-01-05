@@ -27,14 +27,32 @@
         db (mg/get-db conn dbname)]
     (mc/count db collname)))
 
+;; (defn store-files! [files]
+;;   (let [conn (mg/connect {:host hostname})        
+;;         db (mg/get-db conn dbname)
+;;         collname "files"
+;;         file-parted (partition-all partition-size files)]
+;;     (try (doseq [file-group file-parted]
+;;            (mc/insert-batch db collname (map (fn [%] {:fileName (.getPath %) :contents (slurp %)}) file-group)))
+;;          (catch Exception e []))))
 (defn store-files! [files]
   (let [conn (mg/connect {:host hostname})        
         db (mg/get-db conn dbname)
         collname "files"
         file-parted (partition-all partition-size files)]
-    (try (doseq [file-group file-parted]
-           (mc/insert-batch db collname (map (fn [%] {:fileName (.getPath %) :contents (slurp %)}) file-group)))
-         (catch Exception e []))))
+    (doseq [file-group file-parted]
+      (try
+        ;; Process each file individually to handle errors better
+        (doseq [file file-group]
+          (try
+            (let [file-name (.getPath file)
+                  file-contents (slurp file)]
+              (mc/insert db collname {:fileName file-name :contents file-contents}))
+            (catch Exception e
+              (println "Error storing file:" (.getPath file) "Error:" (.getMessage e)))))
+        (catch Exception e
+          (println "Error processing batch. Skipping batch. Error:" (.getMessage e)))))))
+
 
 (defn store-chunks! [chunks]
   (let [conn (mg/connect {:host hostname})        

@@ -53,7 +53,7 @@
          clone candidate]
     (if (empty? overlapping)
       (do
-;;        (println "Number of Clones" (storage/count-items "clones") "Remaining candidates" (storage/count-items "candidates"))
+        (println "Number of Clones" (storage/count-items "clones") "Remaining candidates" (storage/count-items "candidates"))
         (storage/remove-overlapping-candidates! dbconnection (list candidate))
         clone)
       (let [merged-clone (reduce merge-clones clone overlapping)]
