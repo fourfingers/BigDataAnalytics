@@ -1,0 +1,32 @@
+global:
+  scrape_interval: 30s
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'monitor_tool'
+    scrape_interval: 5s # Scrape targets every 5 seconds
+    file_sd_configs:
+      - files:
+          - /etc/prometheus/targets.json
+
+  - job_name: 'mongodb_exporter'
+    file_sd_configs:
+      - files:
+          - /etc/prometheus/targets.json
+
+  - job_name: 'cadvisor'
+    file_sd_configs:
+      - files:
+          - /etc/prometheus/targets.json
+    # relabel_configs:
+    #   # Drop metrics that don't have the label 'image'
+    #   - source_labels: [image]
+    #     action: keep
+    #     regex: .+  # Matches any non-empty value
+    # metric_relabel_configs:
+    #   # Drop container_label_ labels
+    #   - regex: 'container_label_.*'
+    #     action: labeldrop

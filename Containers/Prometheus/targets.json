@@ -1,0 +1,20 @@
+[
+    {
+      "targets": ["monitor_tool:8000"],
+      "labels": {
+        "job": "monitor_tool"
+      }
+    },
+    {
+      "targets": ["mongodb_exporter:9216"],
+      "labels": {
+        "job": "mongodb_exporter"
+      }
+    },
+    {
+      "targets": ["cadvisor:8080"],
+      "labels": {
+        "job": "cadvisor"
+      }
+    }
+  ]

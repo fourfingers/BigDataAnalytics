@@ -1,38 +1,16 @@
 services:
-  prometheus:
-    image: prom/prometheus
-    container_name: prometheus
+  mongodb:
+    image: mongo
+    restart: always
+    container_name: mongodb
+    command: ["mongod", "--quiet", "--profile", "2"]
     ports:
-      - "9090:9090"
-    # volumes:
-    #   - ./Containers/Prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - "27017:27017"
+    expose:
+      - "27017"
     volumes:
-      - ./Containers/Prometheus/prometheus.yml.template:/etc/prometheus/prometheus.yml.template  # Mount the template
-      - ./Containers/Prometheus/start_prometheus.sh:/etc/prometheus/start_prometheus.sh  # Mount the startup script
-    entrypoint: ["/bin/sh", "/etc/prometheus/start_prometheus.sh"]  # Run the script as the entrypoint
-    environment:
-    - MONITOR_TOOL_HOST=monitor_tool
-    - MONITOR_TOOL_PORT=8000
-    - MONGODB_EXPORTER_HOST=mongodb_exporter
-    - MONGODB_EXPORTER_PORT=9216
-
-  grafana:
-    image: grafana/grafana
-    container_name: grafana
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./Containers/Grafana/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml
-      - ./Containers/Grafana/dashboard.yml:/etc/grafana/provisioning/dashboards/dashboard.yml
-      - ./Containers/Grafana/dashboards:/var/lib/grafana/dashboards
-    environment:
-    - GF_SECURITY_ADMIN_USER=admin        # Default admin username
-    - GF_SECURITY_ADMIN_PASSWORD=admin  # Set your desired password
-    - GF_LOG_LEVEL=warn # Options: debug, info, warn, error
-    depends_on:
-      - prometheus
-      - mongodb_exporter
-      - monitor_tool
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
 
   monitor_tool:
     build:
@@ -53,19 +31,51 @@ services:
       - "9216:9216"
     environment:
       - MONGODB_URI=mongodb://mongodb:27017
+    command: 
+      - "--collect-all" 
+      - "--compatible-mode"
     depends_on:
       - mongodb
 
-  mongodb:
-    image: mongo
-    restart: always
-    container_name: mongodb
-    command: --quiet --syslog
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
     ports:
-      - "27017:27017"
+      - "8081:8080"
     volumes:
-      - mongodb_data:/data/db
-      - mongodb_config:/data/configdb
+      - "/:/rootfs:ro"
+      - "/var/run:/var/run:ro"
+      - "/sys:/sys:ro"
+      - "/var/lib/docker/:/var/lib/docker:ro"
+  
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./Containers/Prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./Containers/Prometheus/targets.json:/etc/prometheus/targets.json
+    depends_on:
+      - mongodb_exporter
+      - monitor_tool
+      - cadvisor
+  
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./Containers/Grafana/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml
+      - ./Containers/Grafana/dashboard.yml:/etc/grafana/provisioning/dashboards/dashboard.yml
+      - ./Containers/Grafana/dashboards:/var/lib/grafana/dashboards
+    environment:
+    - GF_SECURITY_ADMIN_USER=admin        # Default admin username
+    - GF_SECURITY_ADMIN_PASSWORD=admin    # Initial password
+    - GF_LOG_LEVEL=warn # Options: debug, info, warn, error
+    depends_on:
+      - prometheus
 
 volumes:
   mongodb_data:

@@ -9,3 +9,6 @@ providers:
     updateIntervalSeconds: 10
     options:
       path: /var/lib/grafana/dashboards
+      # Dashboard credits:
+      # Docker cAdvisor: https://grafana.com/grafana/dashboards/13946-docker-cadvisor/
+      # MongoDB : https://grafana.com/grafana/dashboards/14997-mongodb/

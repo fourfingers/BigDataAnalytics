@@ -1,6 +1,6 @@
 # Docker Compose for All-At-Once Code Clone Detection
 
-version: "3.8"
+#version: "3.8"
 services:
   clone-detector:
     image: cljdetector
@@ -16,11 +16,15 @@ services:
       SOURCEDIReclipse: "/QualitasCorpus/QualitasCorpus-20130901r/Systems/eclipse_SDK"
       SOURCEDIR: "/QualitasCorpus"
       CHUNKSIZE: 20
+    # Add dependency to dbstorage
+    depends_on:
+      - dbstorage
 
   dbstorage:
     image: mongo
     restart: always
-    command: --quiet --syslog
+    # Enable database profiler to collect data for all operations (profile=2) for monitoring purpose
+    command: ["mongod", "--quiet", "--profile", "2"]
     ports:
       - 27017:27017
     expose:
@@ -28,7 +32,79 @@ services:
     volumes:
       - dbstorage:/data/db
       - dbconfig:/data/configdb
-    
+
+  # Implementation of monitoring tool to track cloneDetector collections counts
+  # (using Prometheus client library)
+  monitor_tool:
+    build:
+      context: ./Containers/MonitorTool
+    container_name: monitor_tool
+    ports:
+      - "8000:8000"
+    depends_on:
+      - dbstorage
+    environment:
+      - MONGODB_URI=mongodb://dbstorage:27017
+    command: ["python", "custom_mongodb_exporter.py"]
+
+  # A mongodb metric exporter to monitor mongodb database
+  mongodb_exporter:
+    image: bitnami/mongodb-exporter:latest
+    container_name: mongodb_exporter
+    ports:
+      - "9216:9216"
+    environment:
+      - MONGODB_URI=mongodb://dbstorage:27017
+    command: 
+      - "--collect-all" 
+      - "--compatible-mode"
+    depends_on:
+      - dbstorage
+
+  # A container metric exporter to monitor all docker containers
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    ports:
+      - "8081:8080"
+    volumes:
+      - "/:/rootfs:ro"
+      - "/var/run:/var/run:ro"
+      - "/sys:/sys:ro"
+      - "/var/lib/docker/:/var/lib/docker:ro"
+  
+  # Prometheus application to collect all metrics
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./Containers/Prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./Containers/Prometheus/targets.json:/etc/prometheus/targets.json
+    depends_on:
+      - mongodb_exporter
+      - monitor_tool
+      - cadvisor
+
+  # Grafana application to visualize the collected metrics in Prometheus as graphss
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./Containers/Grafana/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml
+      - ./Containers/Grafana/dashboard.yml:/etc/grafana/provisioning/dashboards/dashboard.yml
+      - ./Containers/Grafana/dashboards:/var/lib/grafana/dashboards
+    environment:
+    - GF_SECURITY_ADMIN_USER=admin        # Default admin username
+    - GF_SECURITY_ADMIN_PASSWORD=admin    # Initial password
+    - GF_LOG_LEVEL=warn # Options: debug, info, warn, error
+    depends_on:
+      - prometheus
+
+
 volumes:
   dbstorage:
   dbconfig:
