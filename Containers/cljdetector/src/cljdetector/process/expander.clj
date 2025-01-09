@@ -63,7 +63,10 @@
 
 (defn expand-clones []
   (let [dbconnection (storage/get-dbconnection)]
-    (loop [candidate (storage/get-one-candidate dbconnection)]
-      (when candidate
-        (storage/store-clone! dbconnection (maybe-expand dbconnection candidate))
-        (recur (storage/get-one-candidate dbconnection))))))
+    (try
+      (loop [candidate (storage/get-one-candidate dbconnection)]
+        (when candidate
+          (storage/store-clone! dbconnection (maybe-expand dbconnection candidate))
+          (recur (storage/get-one-candidate dbconnection))))
+      (finally
+        (storage/close-dbconnection dbconnection)))))

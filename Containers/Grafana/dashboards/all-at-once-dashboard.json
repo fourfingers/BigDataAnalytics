@@ -67,7 +67,7 @@
               "scaleDistribution": {
                 "type": "linear"
               },
-              "showPoints": "auto",
+              "showPoints": "never",
               "spanNulls": true,
               "stacking": {
                 "group": "A",
@@ -101,7 +101,7 @@
           "y": 1
         },
         "id": 1,
-        "interval": "1",
+        "interval": "5s",
         "options": {
           "legend": {
             "calcs": [
@@ -174,7 +174,7 @@
               "scaleDistribution": {
                 "type": "linear"
               },
-              "showPoints": "auto",
+              "showPoints": "never",
               "spanNulls": false,
               "stacking": {
                 "group": "A",
@@ -208,7 +208,7 @@
           "y": 1
         },
         "id": 2,
-        "interval": "1s",
+        "interval": "5s",
         "options": {
           "legend": {
             "calcs": [
@@ -275,7 +275,7 @@
               "scaleDistribution": {
                 "type": "linear"
               },
-              "showPoints": "auto",
+              "showPoints": "never",
               "spanNulls": false,
               "stacking": {
                 "group": "A",
@@ -309,7 +309,7 @@
           "y": 1
         },
         "id": 3,
-        "interval": "1s",
+        "interval": "5s",
         "options": {
           "legend": {
             "calcs": [
@@ -376,7 +376,7 @@
               "scaleDistribution": {
                 "type": "linear"
               },
-              "showPoints": "auto",
+              "showPoints": "never",
               "spanNulls": false,
               "stacking": {
                 "group": "A",
@@ -410,7 +410,7 @@
           "y": 1
         },
         "id": 4,
-        "interval": "1s",
+        "interval": "5s",
         "options": {
           "legend": {
             "calcs": [
@@ -1381,7 +1381,8 @@
             "calcs": [
               "lastNotNull",
               "max",
-              "min"
+              "min",
+              "mean"
             ],
             "displayMode": "table",
             "placement": "right",
@@ -1488,7 +1489,8 @@
             "calcs": [
               "lastNotNull",
               "max",
-              "min"
+              "min",
+              "mean"
             ],
             "displayMode": "table",
             "placement": "right",

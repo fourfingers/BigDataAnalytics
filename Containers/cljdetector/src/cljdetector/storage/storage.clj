@@ -8,41 +8,52 @@
 (def dbname "cloneDetector")
 (def partition-size 100)
 (def hostname (or (System/getenv "DBHOST") DEFAULT-DBHOST))
+;; (def collnames ["files"  "chunks" "candidates" "clones" "statusUpdates"])
 (def collnames ["files"  "chunks" "candidates" "clones"])
 
+;; moved this function on the top so it can be reused
+(defn get-dbconnection []
+  (mg/connect {:host hostname}))
+
+;; added db connection closing (issue: too many TCP connection)
+(defn close-dbconnection [conn]
+  (mg/disconnect conn))
+
 (defn print-statistics []
-  (let [conn (mg/connect {:host hostname})        
+  (let [conn (get-dbconnection)
         db (mg/get-db conn dbname)]
     (doseq [coll collnames]
-      (println "db contains" (mc/count db coll) coll))))
+      (println "db contains" (mc/count db coll) coll))
+    (close-dbconnection conn)))
 
 (defn clear-db! []
-  (let [conn (mg/connect {:host hostname})        
+  (let [conn (get-dbconnection)
         db (mg/get-db conn dbname)]
     (doseq [coll collnames]
-      (mc/drop db coll))))
+      (mc/drop db coll))
+    (close-dbconnection conn)))
 
+;; (defn count-items [collname]
+;;   (let [conn (get-dbconnection)
+;;         db (mg/get-db conn dbname)]
+;;     (mc/count db collname)
+;;     (close-dbconnection conn)))
 (defn count-items [collname]
-  (let [conn (mg/connect {:host hostname})        
-        db (mg/get-db conn dbname)]
-    (mc/count db collname)))
+  (let [conn (get-dbconnection)]
+    (try
+      (let [db (mg/get-db conn dbname)]
+        (mc/count db collname))
+      (finally
+        (close-dbconnection conn)))))
 
-;; (defn store-files! [files]
-;;   (let [conn (mg/connect {:host hostname})        
-;;         db (mg/get-db conn dbname)
-;;         collname "files"
-;;         file-parted (partition-all partition-size files)]
-;;     (try (doseq [file-group file-parted]
-;;            (mc/insert-batch db collname (map (fn [%] {:fileName (.getPath %) :contents (slurp %)}) file-group)))
-;;          (catch Exception e []))))
+
 (defn store-files! [files]
-  (let [conn (mg/connect {:host hostname})        
+  (let [conn (get-dbconnection)
         db (mg/get-db conn dbname)
         collname "files"
         file-parted (partition-all partition-size files)]
     (doseq [file-group file-parted]
       (try
-        ;; Process each file individually to handle errors better
         (doseq [file file-group]
           (try
             (let [file-name (.getPath file)
@@ -51,41 +62,43 @@
             (catch Exception e
               (println "Error storing file:" (.getPath file) "Error:" (.getMessage e)))))
         (catch Exception e
-          (println "Error processing batch. Skipping batch. Error:" (.getMessage e)))))))
-
+          (println "Error processing batch. Skipping batch. Error:" (.getMessage e)))))
+    (close-dbconnection conn)))
 
 (defn store-chunks! [chunks]
-  (let [conn (mg/connect {:host hostname})        
+  (let [conn (get-dbconnection)
         db (mg/get-db conn dbname)
         collname "chunks"
         chunk-parted (partition-all partition-size (flatten chunks))]
     (doseq [chunk-group chunk-parted]
-      (mc/insert-batch db collname (map identity chunk-group)))))
+      (mc/insert-batch db collname (map identity chunk-group)))
+    (close-dbconnection conn)))
 
-(defn store-clones! [clones]
-  (let [conn (mg/connect {:host hostname})        
-        db (mg/get-db conn dbname)
+(defn store-clones! [conn clones]
+  (let [db (mg/get-db conn dbname)
         collname "clones"
         clones-parted (partition-all partition-size clones)]
     (doseq [clone-group clones-parted]
-      (mc/insert-batch db collname (map identity clone-group)))))
+      (mc/insert-batch db collname (map identity clone-group)))
+    (close-dbconnection conn)))
 
 (defn identify-candidates! []
-  (let [conn (mg/connect {:host hostname})        
+  (let [conn (get-dbconnection)
         db (mg/get-db conn dbname)
         collname "chunks"]
-     (mc/aggregate db collname
+    (mc/aggregate db collname
                    [{$group {:_id {:chunkHash "$chunkHash"}
                              :numberOfInstances {$count {}}
                              :instances {$push {:fileName "$fileName"
                                                 :startLine "$startLine"
                                                 :endLine "$endLine"}}}}
                     {$match {:numberOfInstances {$gt 1}}}
-                    {"$out" "candidates"} ])))
+                    {"$out" "candidates"} ])
+    (close-dbconnection conn)))
 
 
 (defn consolidate-clones-and-source []
-  (let [conn (mg/connect {:host hostname})        
+  (let [conn (get-dbconnection)
         db (mg/get-db conn dbname)
         collname "clones"]
     (mc/aggregate db collname
@@ -112,11 +125,9 @@
                                 "$$this"]
                                }}}}}]
                      :as "sourceContents"}}
-                   {$project {:_id 0 :instances 1 :contents "$sourceContents.contents"}}])))
+                   {$project {:_id 0 :instances 1 :contents "$sourceContents.contents"}}])
+    (close-dbconnection conn)))
 
-
-(defn get-dbconnection []
-  (mg/connect {:host hostname}))
 
 (defn get-one-candidate [conn]
   (let [db (mg/get-db conn dbname)
@@ -164,7 +175,8 @@
     (mc/insert db collname anonymous-clone)))
 
 (defn addUpdate! [timestamp message]
-  (let [conn (mg/connect {:host hostname})
+  (let [conn (get-dbconnection)
         db (mg/get-db conn dbname)
         collname "statusUpdates"]
-    (mc/insert db collname {:timestamp timestamp :message message})))
+    (mc/insert db collname {:timestamp timestamp :message message})
+    (close-dbconnection conn)))

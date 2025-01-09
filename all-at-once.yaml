@@ -4,7 +4,7 @@
 services:
   clone-detector:
     image: cljdetector
-    command: clear 
+    command: clear #clear noread nocloneid noexpand list
     ports:
       - 8080:3000
     volumes:
@@ -38,7 +38,6 @@ services:
   monitor_tool:
     build:
       context: ./Containers/MonitorTool
-    container_name: monitor_tool
     ports:
       - "8000:8000"
     depends_on:
@@ -50,7 +49,6 @@ services:
   # A mongodb metric exporter to monitor mongodb database
   mongodb_exporter:
     image: bitnami/mongodb-exporter:latest
-    container_name: mongodb_exporter
     ports:
       - "9216:9216"
     environment:
@@ -64,7 +62,6 @@ services:
   # A container metric exporter to monitor all docker containers
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
-    container_name: cadvisor
     ports:
       - "8081:8080"
     volumes:
@@ -76,7 +73,6 @@ services:
   # Prometheus application to collect all metrics
   prometheus:
     image: prom/prometheus
-    container_name: prometheus
     ports:
       - "9090:9090"
     volumes:
@@ -90,7 +86,6 @@ services:
   # Grafana application to visualize the collected metrics in Prometheus as graphss
   grafana:
     image: grafana/grafana
-    container_name: grafana
     ports:
       - "3000:3000"
     volumes:
